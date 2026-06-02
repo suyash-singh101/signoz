@@ -4,6 +4,8 @@ import { Badge } from '@signozhq/ui/badge';
 import { Typography } from '@signozhq/ui/typography';
 import { EllipsisVertical } from '@signozhq/icons';
 import type { DashboardtypesPanelDTO } from 'api/generated/services/sigNoz.schemas';
+import { getPanelDefinition } from 'container/DashboardContainerV2/Panels';
+import { usePanelQuery } from 'container/DashboardContainerV2/hooks/usePanelQuery';
 
 interface Props {
 	panel: DashboardtypesPanelDTO | undefined;
@@ -13,11 +15,23 @@ interface Props {
 function PanelV2({ panel, panelId }: Props): JSX.Element {
 	const name = panel?.spec?.display?.name || `Panel ${panelId.slice(0, 6)}`;
 	const description = panel?.spec?.display?.description;
-	const kind = panel?.spec?.plugin?.kind?.replace(/^signoz\//, '') ?? 'unknown';
+	const fullKind = panel?.spec?.plugin?.kind;
+	const kind = fullKind?.replace(/^signoz\//, '') ?? 'unknown';
 	const queryCount = panel?.spec?.queries?.length ?? 0;
 
+	const panelDef = getPanelDefinition(fullKind);
+	const pluginSpec = panel?.spec?.plugin?.spec;
+
+	const { query, data, isLoading, error } = usePanelQuery({
+		panel,
+		panelId,
+		enabled: !!panelDef,
+	});
+
 	const headerTitle = useMemo(() => {
-		if (!description) {return name;}
+		if (!description) {
+			return name;
+		}
 		return (
 			<Tooltip title={description}>
 				<span>{name}</span>
@@ -76,20 +90,41 @@ function PanelV2({ panel, panelId }: Props): JSX.Element {
 				style={{
 					flex: 1,
 					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					padding: 12,
-					color: 'var(--bg-vanilla-400, #8993ae)',
-					fontSize: 12,
-					textAlign: 'center',
+					minHeight: 0,
 				}}
 			>
-				<div>
-					<div style={{ marginBottom: 6 }}>{kind} panel</div>
-					<div>
-						{queryCount} {queryCount === 1 ? 'query' : 'queries'} · chart rendering coming next
+				{panelDef ? (
+					<panelDef.Renderer
+						panelId={panelId}
+						spec={pluginSpec}
+						query={query}
+						data={data}
+						isLoading={isLoading}
+						error={error}
+					/>
+				) : (
+					<div
+						data-testid="panel-v2-unknown-kind-fallback"
+						style={{
+							flex: 1,
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							padding: 12,
+							color: 'var(--bg-vanilla-400, #8993ae)',
+							fontSize: 12,
+							textAlign: 'center',
+						}}
+					>
+						<div>
+							<div style={{ marginBottom: 6 }}>{kind} panel</div>
+							<div>
+								{queryCount} {queryCount === 1 ? 'query' : 'queries'} · not yet
+								supported in V2
+							</div>
+						</div>
 					</div>
-				</div>
+				)}
 			</div>
 		</div>
 	);
