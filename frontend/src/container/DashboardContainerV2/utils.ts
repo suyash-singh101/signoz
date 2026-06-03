@@ -66,11 +66,36 @@ export function flattenGridLayout(
  * "default" untitled section (visually just the grid).
  */
 export interface DashboardSectionV2 {
+	/**
+	 * Stable identity used for React keys and dnd-kit sortable item ids. Derived
+	 * from the section's content (its first panel ref) so it survives reordering
+	 * — unlike the positional `layoutIndex`. See `getSectionStableId`.
+	 */
 	id: string;
+	/** Position of this section's Grid in `spec.layouts`. All JSON-Patch ops target by this. */
+	layoutIndex: number;
 	title: string | undefined;
 	open: boolean;
 	items: GridItemV2[];
 	repeatVariable: string | undefined;
+}
+
+/**
+ * Derives a stable id for a section from its content. Reordering sections changes
+ * their `layoutIndex` but not their content, so keying off the first panel ref
+ * keeps React component instances (and any local state) bound to the right
+ * section across a reorder. Empty sections fall back to a positional id — they
+ * are rarely reordered, and a future backend `id` on the layout spec is the
+ * proper long-term fix.
+ */
+export function getSectionStableId(
+	items: GridItemV2[],
+	layoutIndex: number,
+): string {
+	if (items.length > 0) {
+		return `sec-${items[0].id}`;
+	}
+	return `sec-empty-${layoutIndex}`;
 }
 
 export function layoutsToSections(
@@ -110,7 +135,8 @@ export function layoutsToSections(
 			const open = spec?.display?.collapse?.open !== false;
 
 			return {
-				id: `section-${idx}`,
+				id: getSectionStableId(items, idx),
+				layoutIndex: idx,
 				title,
 				open,
 				items,
